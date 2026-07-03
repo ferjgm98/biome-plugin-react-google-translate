@@ -1,0 +1,80 @@
+engine biome(1.0)
+language js(typescript, jsx)
+
+or {
+  `return $value;` as $problem where {
+    $value <: or {
+      r"^\".*\"$",
+      r"^'.*'$",
+      r"^`.*`$",
+      r"^[0-9]+$"
+    }
+  },
+  JsxElement(children=$children) as $problem where {
+    $children <: contains JsxExpressionChild(expression=JsConditionalExpression(consequent=JsStringLiteralExpression())),
+    $children <: contains or {
+      JsxElement(),
+      JsxSelfClosingElement()
+    }
+  },
+  JsxElement(children=$children) as $problem where {
+    $children <: contains JsxExpressionChild(expression=JsConditionalExpression(alternate=JsStringLiteralExpression())),
+    $children <: contains or {
+      JsxElement(),
+      JsxSelfClosingElement()
+    }
+  },
+  JsxElement(children=$children) as $problem where {
+    $children <: contains JsxExpressionChild(expression=JsLogicalExpression(right=JsStringLiteralExpression())),
+    $children <: contains or {
+      JsxElement(),
+      JsxSelfClosingElement()
+    }
+  },
+  JsxElement(children=$children) as $problem where {
+    $children <: contains JsxExpressionChild(expression=JsConditionalExpression(consequent=JsCallExpression(callee=JsIdentifierExpression(name=$callee)))),
+    $callee <: or {
+      `t`,
+      `formatMessage`
+    },
+    $children <: contains or {
+      JsxElement(),
+      JsxSelfClosingElement()
+    }
+  },
+  JsxElement(children=$children) as $problem where {
+    $children <: contains JsxExpressionChild(expression=JsLogicalExpression(right=JsCallExpression(callee=JsIdentifierExpression(name=$callee)))),
+    $callee <: or {
+      `t`,
+      `formatMessage`
+    },
+    $children <: contains or {
+      JsxElement(),
+      JsxSelfClosingElement()
+    }
+  },
+  JsxElement(children=$children) as $problem where {
+    $children <: contains JsxExpressionChild(expression=JsConditionalExpression(consequent=JsCallExpression(callee=JsStaticMemberExpression(member=$member)))),
+    $member <: or {
+      `toString`,
+      `toLocaleString`
+    },
+    $children <: contains or {
+      JsxElement(),
+      JsxSelfClosingElement()
+    }
+  },
+  JsxElement(children=$children) as $problem where {
+    $children <: contains JsxExpressionChild(expression=JsLogicalExpression(right=JsCallExpression(callee=JsStaticMemberExpression(member=$member)))),
+    $member <: or {
+      `toString`,
+      `toLocaleString`
+    },
+    $children <: contains or {
+      JsxElement(),
+      JsxSelfClosingElement()
+    }
+  }
+} where {
+  register_diagnostic(span=$problem, message="Wrap React text nodes that can be inserted, removed, or updated next to siblings in an element such as <span>...</span> to reduce Google Translate DOM-mutation hazards.")
+}
