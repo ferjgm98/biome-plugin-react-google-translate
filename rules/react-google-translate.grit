@@ -74,6 +74,26 @@ or {
       JsxElement(),
       JsxSelfClosingElement()
     }
+  },
+  JsxElement(children=$children) as $problem where {
+    $children <: [
+      JsxText() as $before,
+
+      JsxExpressionChild(expression=JsConditionalExpression()),
+
+      JsxText() as $after
+    ],
+    $before <: r"^\s*$",
+    $after <: r"(?s).*\S.*"
+  },
+  JsxElement(children=$children) as $problem where {
+    $children <: [
+      JsxText() as $before,
+
+      JsxExpressionChild(expression=JsLogicalExpression()), JsxText() as $after
+    ],
+    $before <: r"^\s*$",
+    $after <: r"(?s).*\S.*"
   }
 } where {
   register_diagnostic(span=$problem, message="Wrap React text nodes that can be inserted, removed, or updated next to siblings in an element such as <span>...</span> to reduce Google Translate DOM-mutation hazards.")

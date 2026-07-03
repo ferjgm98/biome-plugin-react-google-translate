@@ -38,11 +38,11 @@ const pluginDiagnostics = result.diagnostics.filter(
   (diagnostic) => diagnostic.category === "plugin",
 );
 
-if (pluginDiagnostics.length !== 10) {
+if (pluginDiagnostics.length !== 12) {
   process.stdout.write(invalid.stdout);
   process.stderr.write(invalid.stderr);
   throw new Error(
-    `Expected 10 plugin diagnostics, found ${pluginDiagnostics.length}.`,
+    `Expected 12 plugin diagnostics, found ${pluginDiagnostics.length}.`,
   );
 }
 

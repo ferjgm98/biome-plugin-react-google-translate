@@ -111,7 +111,6 @@ pnpm verify
 
 - `fixtures/invalid`: patterns this package currently catches.
 - `fixtures/valid`: safe wrapping patterns that should stay clean.
-- `fixtures/limitations`: known hazardous patterns that are documented but not currently caught without false positives.
 
 ## Limitations
 
@@ -119,7 +118,7 @@ Biome GritQL plugins are structural. This package does not use TypeScript type i
 
 Known gaps:
 
-- Static JSX text after a conditional JSX expression sibling is documented in `fixtures/limitations/static-text-after-conditional.jsx`, but not enabled as a diagnostic because the broad GritQL pattern also reports wrapped safe text inside child elements.
+- Static JSX text after a conditional JSX expression is detected for the common direct-child shape where the text before the expression is whitespace-only and the text after it is meaningful content. More complex child lists may need additional GritQL variants.
 - Calls are detected by visible callee shape only: `t(...)`, `formatMessage(...)`, `.toString()`, and `.toLocaleString()`. Aliased helpers, custom formatters, variables typed as `string` or `number`, and object properties are not type-resolved.
 - Direct text return detection is file-structural. Scope Biome to React component files to avoid reporting ordinary utility functions that intentionally return strings or numbers.
 - The diagnostic span is usually the parent JSX element for sibling hazards because Biome/GritQL plugin diagnostics operate on structural matches rather than ESLint-style visitor state.

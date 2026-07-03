@@ -6,3 +6,12 @@ export function StaticTextAfterConditional({ enabled }) {
     </p>
   );
 }
+
+export function StaticTextAfterLogical({ enabled }) {
+  return (
+    <p>
+      {enabled && <span>yes</span>}
+      status
+    </p>
+  );
+}
