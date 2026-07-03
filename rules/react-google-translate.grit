@@ -65,11 +65,50 @@ or {
     }
   },
   JsxElement(children=$children) as $problem where {
+    $children <: contains JsxExpressionChild(expression=JsConditionalExpression(alternate=JsCallExpression(callee=JsStaticMemberExpression(member=$member)))),
+    $member <: or {
+      `toString`,
+      `toLocaleString`
+    },
+    $children <: contains or {
+      JsxElement(),
+      JsxSelfClosingElement()
+    }
+  },
+  JsxElement(children=$children) as $problem where {
     $children <: contains JsxExpressionChild(expression=JsLogicalExpression(right=JsCallExpression(callee=JsStaticMemberExpression(member=$member)))),
     $member <: or {
       `toString`,
       `toLocaleString`
     },
+    $children <: contains or {
+      JsxElement(),
+      JsxSelfClosingElement()
+    }
+  },
+  JsxElement(children=$children) as $problem where {
+    $children <: contains JsxExpressionChild(expression=JsConditionalExpression(consequent=JsStaticMemberExpression())),
+    $children <: contains or {
+      JsxElement(),
+      JsxSelfClosingElement()
+    }
+  },
+  JsxElement(children=$children) as $problem where {
+    $children <: contains JsxExpressionChild(expression=JsConditionalExpression(alternate=JsStaticMemberExpression())),
+    $children <: contains or {
+      JsxElement(),
+      JsxSelfClosingElement()
+    }
+  },
+  JsxElement(children=$children) as $problem where {
+    $children <: contains JsxExpressionChild(expression=JsLogicalExpression(right=JsStaticMemberExpression())),
+    $children <: contains or {
+      JsxElement(),
+      JsxSelfClosingElement()
+    }
+  },
+  JsxElement(children=$children) as $problem where {
+    $children <: contains JsxExpressionChild(expression=JsConditionalExpression(consequent=TsNonNullAssertionExpression(expression=JsStaticMemberExpression()))),
     $children <: contains or {
       JsxElement(),
       JsxSelfClosingElement()

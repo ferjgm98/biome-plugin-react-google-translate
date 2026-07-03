@@ -77,6 +77,15 @@ Common string-producing calls in conditional JSX when structurally visible:
 </p>
 ```
 
+Member and optional member expressions in conditional JSX:
+
+```jsx
+<p>
+  {enabled && user?.label}
+  <span>status</span>
+</p>
+```
+
 Direct returns of strings, numbers, or template literals:
 
 ```jsx
@@ -98,6 +107,24 @@ Prefer wrapping text in an element:
 </p>
 ```
 
+## Autofix
+
+The package includes a conservative codemod command for the verified structural cases:
+
+```sh
+pnpm dlx biome-plugin-react-google-translate fix "src/**/*.{jsx,tsx}" --write
+npx biome-plugin-react-google-translate fix "src/**/*.{jsx,tsx}" --write
+bunx biome-plugin-react-google-translate fix "src/**/*.{jsx,tsx}" --write
+```
+
+The command defaults to dry-run mode:
+
+```sh
+pnpm dlx biome-plugin-react-google-translate fix "src/**/*.{jsx,tsx}"
+```
+
+With `--write`, it wraps fixable text-producing JSX branches and direct component text returns in `<span>`. It also runs `biome format --write` on changed files when a Biome binary is available. Use `--no-format` to skip formatting.
+
 ## Verification
 
 ```sh
@@ -106,6 +133,8 @@ pnpm verify
 ```
 
 `pnpm verify` runs Biome against `fixtures/valid` and `fixtures/invalid`. It passes only when valid fixtures produce no diagnostics and invalid fixtures produce the expected plugin diagnostics.
+
+The verifier also runs the autofix command against a temporary copy of the invalid fixtures and confirms the fixed output has no remaining plugin diagnostics.
 
 ## Fixtures
 
@@ -119,9 +148,10 @@ Biome GritQL plugins are structural. This package does not use TypeScript type i
 Known gaps:
 
 - Static JSX text after a conditional JSX expression is detected for the common direct-child shape where the text before the expression is whitespace-only and the text after it is meaningful content. More complex child lists may need additional GritQL variants.
-- Calls are detected by visible callee shape only: `t(...)`, `formatMessage(...)`, `.toString()`, and `.toLocaleString()`. Aliased helpers, custom formatters, variables typed as `string` or `number`, and object properties are not type-resolved.
+- Calls and member expressions are detected by visible syntax shape only: `t(...)`, `formatMessage(...)`, `.toString()`, `.toLocaleString()`, `obj.label`, and `obj?.label`. Aliased helpers, custom formatters, variables typed as `string` or `number`, and computed object properties are not type-resolved.
 - Direct text return detection is file-structural. Scope Biome to React component files to avoid reporting ordinary utility functions that intentionally return strings or numbers.
 - The diagnostic span is usually the parent JSX element for sibling hazards because Biome/GritQL plugin diagnostics operate on structural matches rather than ESLint-style visitor state.
+- Autofix is intentionally conservative and syntax-based. Review changes before committing, especially direct text returns and member-expression cases where type information is unavailable.
 
 ## Comparison With eslint-plugin-react-google-translate
 
@@ -133,19 +163,9 @@ This package is narrower:
 - It ships a plain `.grit` rule file.
 - It avoids ESLint and TypeScript parser-service dependencies.
 - It only claims patterns that are verified in fixtures.
+- It adds an optional standalone codemod CLI for high-confidence fixes instead of relying on ESLint fixers.
 
 Use the ESLint plugin if you need the broader type-aware behavior today. Use this package when you want lightweight Biome-native coverage for the highest-signal React text-node hazards.
-
-## Publishing
-
-Before publishing:
-
-```sh
-pnpm verify
-npm publish --access public
-```
-
-If publishing under a scope, update `package.json` `name`, repository URLs, and the install examples first.
 
 ## License
 

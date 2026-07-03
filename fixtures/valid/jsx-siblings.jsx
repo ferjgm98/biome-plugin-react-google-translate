@@ -51,3 +51,18 @@ export function WrappedConditionalCalls({ enabled, value, t, formatMessage }) {
     </div>
   );
 }
+
+export function WrappedMemberExpressions({ enabled, user }) {
+  return (
+    <div>
+      <p>
+        {enabled ? <span>{user.label}</span> : <span>empty</span>}
+        <span>status</span>
+      </p>
+      <p>
+        {enabled && <span>{user.label}</span>}
+        <span>status</span>
+      </p>
+    </div>
+  );
+}

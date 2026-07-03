@@ -16,7 +16,12 @@ export function LogicalTextWithSibling({ enabled }) {
   );
 }
 
-export function ConditionalCallWithSibling({ enabled, value, t, formatMessage }) {
+export function ConditionalCallWithSibling({
+  enabled,
+  value,
+  t,
+  formatMessage,
+}) {
   return (
     <div>
       <p>

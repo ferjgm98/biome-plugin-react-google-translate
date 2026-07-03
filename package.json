@@ -21,6 +21,7 @@
     "lint"
   ],
   "files": [
+    "bin",
     "rules",
     "examples",
     "fixtures",
@@ -33,11 +34,23 @@
     "./react-google-translate.grit": "./rules/react-google-translate.grit",
     "./rules/react-google-translate.grit": "./rules/react-google-translate.grit"
   },
+  "bin": {
+    "biome-plugin-react-google-translate": "./bin/cli.mjs",
+    "react-google-translate-fix": "./bin/cli.mjs"
+  },
   "scripts": {
-    "lint": "biome check --files-ignore-unknown=true package.json biome.json scripts rules",
+    "lint": "biome check --files-ignore-unknown=true package.json biome.json bin scripts rules",
+    "fix:fixtures": "node bin/cli.mjs fix fixtures/invalid --write",
     "verify": "node scripts/verify.mjs",
     "fixtures:valid": "biome lint fixtures/valid",
     "fixtures:invalid": "biome lint fixtures/invalid"
+  },
+  "dependencies": {
+    "@babel/generator": "^8.0.0",
+    "@babel/parser": "^8.0.0",
+    "@babel/traverse": "^8.0.0",
+    "@babel/types": "^8.0.0",
+    "fast-glob": "^3.3.3"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.2"
