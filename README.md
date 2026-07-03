@@ -12,6 +12,22 @@ This is inspired by [`eslint-plugin-react-google-translate`](https://github.com/
 pnpm add -D @biomejs/biome biome-plugin-react-google-translate
 ```
 
+## Compatibility
+
+This package requires Biome `2.5.2` or newer. Earlier Biome versions can fail to compile the GritQL plugin with a generic plugin-loading error because the plugin uses newer GritQL node-field and list-pattern support.
+
+If your editor reports `The plugin loading has failed`, check the Biome version shown by the extension or run:
+
+```sh
+pnpm biome version
+```
+
+Then upgrade Biome:
+
+```sh
+pnpm add -D @biomejs/biome@latest
+```
+
 ## Usage
 
 Add the GritQL rule file to `biome.json`:
