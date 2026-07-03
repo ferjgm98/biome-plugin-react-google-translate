@@ -1,0 +1,46 @@
+{
+  "name": "biome-plugin-react-google-translate",
+  "version": "0.1.0",
+  "description": "Biome GritQL lint rules for React text-node patterns that can break under Google Translate DOM mutation.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ferjgm98/biome-plugin-react-google-translate.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ferjgm98/biome-plugin-react-google-translate/issues"
+  },
+  "homepage": "https://github.com/ferjgm98/biome-plugin-react-google-translate#readme",
+  "keywords": [
+    "biome",
+    "biome-plugin",
+    "gritql",
+    "react",
+    "google-translate",
+    "lint"
+  ],
+  "files": [
+    "rules",
+    "examples",
+    "fixtures",
+    "scripts/verify.mjs",
+    "README.md",
+    "CONTRIBUTING.md",
+    "LICENSE"
+  ],
+  "exports": {
+    "./react-google-translate.grit": "./rules/react-google-translate.grit",
+    "./rules/react-google-translate.grit": "./rules/react-google-translate.grit"
+  },
+  "scripts": {
+    "lint": "biome check --files-ignore-unknown=true package.json biome.json scripts rules",
+    "verify": "node scripts/verify.mjs",
+    "fixtures:valid": "biome lint fixtures/valid",
+    "fixtures:invalid": "biome lint fixtures/invalid"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.2"
+  },
+  "packageManager": "pnpm@11.7.0"
+}
