@@ -23,13 +23,10 @@
   "files": [
     "bin",
     "rules",
-    "examples",
-    "fixtures",
-    "scripts/verify.mjs",
     "README.md",
-    "CONTRIBUTING.md",
     "LICENSE"
   ],
+  "sideEffects": false,
   "exports": {
     "./react-google-translate.grit": "./rules/react-google-translate.grit",
     "./rules/react-google-translate.grit": "./rules/react-google-translate.grit"
@@ -47,10 +44,7 @@
   },
   "dependencies": {
     "@babel/generator": "^8.0.0",
-    "@babel/parser": "^8.0.0",
-    "@babel/traverse": "^8.0.0",
-    "@babel/types": "^8.0.0",
-    "fast-glob": "^3.3.3"
+    "@babel/parser": "^8.0.0"
   },
   "peerDependencies": {
     "@biomejs/biome": ">=2.5.2"

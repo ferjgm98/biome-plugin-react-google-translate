@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import path from "node:path";
 import process from "node:process";
 import generate from "@babel/generator";
 import { parse } from "@babel/parser";
-import traverse from "@babel/traverse";
-import * as t from "@babel/types";
-import fg from "fast-glob";
 
 const DEFAULT_PATTERNS = ["**/*.{jsx,tsx}"];
+const FIXABLE_EXTENSIONS = new Set([".jsx", ".tsx"]);
+const IGNORED_DIRS = new Set([".git", "node_modules"]);
 
 function printUsage() {
   console.log(`Usage:
@@ -51,29 +51,184 @@ function parseSource(source, filePath) {
   });
 }
 
+function normalizePath(filePath) {
+  return filePath.split(path.sep).join("/");
+}
+
+function escapeRegex(value) {
+  return value.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
+}
+
+function globToRegex(pattern) {
+  let source = "^";
+
+  for (let index = 0; index < pattern.length; index += 1) {
+    const char = pattern[index];
+    const next = pattern[index + 1];
+
+    if (char === "*" && next === "*") {
+      const afterGlobstar = pattern[index + 2];
+      if (afterGlobstar === "/") {
+        source += "(?:.*/)?";
+        index += 2;
+      } else {
+        source += ".*";
+        index += 1;
+      }
+      continue;
+    }
+
+    if (char === "*") {
+      source += "[^/]*";
+      continue;
+    }
+
+    if (char === "?") {
+      source += "[^/]";
+      continue;
+    }
+
+    if (char === "{") {
+      const end = pattern.indexOf("}", index + 1);
+      if (end !== -1) {
+        const options = pattern
+          .slice(index + 1, end)
+          .split(",")
+          .map(escapeRegex)
+          .join("|");
+        source += `(?:${options})`;
+        index = end;
+        continue;
+      }
+    }
+
+    source += escapeRegex(char);
+  }
+
+  return new RegExp(`${source}$`);
+}
+
+function hasGlobMagic(pattern) {
+  return /[*?{]/.test(pattern);
+}
+
+function getGlobBase(pattern) {
+  const normalized = normalizePath(pattern);
+  const firstMagic = normalized.search(/[*?{]/);
+
+  if (firstMagic === -1) {
+    return normalized;
+  }
+
+  const slashBeforeMagic = normalized.lastIndexOf("/", firstMagic);
+  return slashBeforeMagic === -1 ? "." : normalized.slice(0, slashBeforeMagic);
+}
+
+function collectReactFiles(root) {
+  const files = [];
+
+  function visit(directory) {
+    let entries;
+
+    try {
+      entries = fs.readdirSync(directory, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      if (entry.name.startsWith(".")) {
+        continue;
+      }
+
+      const entryPath = path.join(directory, entry.name);
+
+      if (entry.isDirectory()) {
+        if (!IGNORED_DIRS.has(entry.name)) {
+          visit(entryPath);
+        }
+        continue;
+      }
+
+      if (entry.isFile() && FIXABLE_EXTENSIONS.has(path.extname(entry.name))) {
+        files.push(entryPath);
+      }
+    }
+  }
+
+  visit(root);
+  return files;
+}
+
+function expandPattern(pattern) {
+  const absolutePattern = path.resolve(pattern);
+
+  if (!hasGlobMagic(pattern)) {
+    if (!fs.existsSync(absolutePattern)) {
+      return [];
+    }
+
+    const stat = fs.statSync(absolutePattern);
+    if (stat.isDirectory()) {
+      return collectReactFiles(absolutePattern);
+    }
+
+    return stat.isFile() &&
+      FIXABLE_EXTENSIONS.has(path.extname(absolutePattern))
+      ? [absolutePattern]
+      : [];
+  }
+
+  const root = path.resolve(getGlobBase(pattern));
+  const matcher = globToRegex(normalizePath(absolutePattern));
+  return collectReactFiles(root).filter((filePath) =>
+    matcher.test(normalizePath(path.resolve(filePath))),
+  );
+}
+
+function expandPatterns(patterns) {
+  const seen = new Set();
+  const files = [];
+
+  for (const pattern of patterns) {
+    for (const filePath of expandPattern(pattern)) {
+      const relativePath = path.relative(process.cwd(), filePath) || filePath;
+
+      if (!seen.has(relativePath)) {
+        seen.add(relativePath);
+        files.push(relativePath);
+      }
+    }
+  }
+
+  return files;
+}
+
+function isNode(node, type) {
+  return node?.type === type;
+}
+
 function isWhitespaceJsxText(node) {
-  return t.isJSXText(node) && node.value.trim() === "";
+  return isNode(node, "JSXText") && node.value.trim() === "";
 }
 
 function isMeaningfulJsxChild(node) {
   return !isWhitespaceJsxText(node);
 }
 
-function hasMeaningfulSibling(path) {
-  const parent = path.parentPath;
-
-  if (!parent?.isJSXElement()) {
+function hasMeaningfulSibling(node, parent) {
+  if (!isNode(parent, "JSXElement")) {
     return false;
   }
 
-  const meaningfulChildren = parent.node.children.filter(isMeaningfulJsxChild);
-  return meaningfulChildren.some((child) => child !== path.node);
+  const meaningfulChildren = parent.children.filter(isMeaningfulJsxChild);
+  return meaningfulChildren.some((child) => child !== node);
 }
 
 function isNamedCall(node, names) {
   return (
-    t.isCallExpression(node) &&
-    t.isIdentifier(node.callee) &&
+    isNode(node, "CallExpression") &&
+    isNode(node.callee, "Identifier") &&
     names.has(node.callee.name) &&
     node.arguments.length > 0
   );
@@ -81,9 +236,9 @@ function isNamedCall(node, names) {
 
 function isStringMethodCall(node) {
   return (
-    t.isCallExpression(node) &&
-    t.isMemberExpression(node.callee) &&
-    t.isIdentifier(node.callee.property) &&
+    isNode(node, "CallExpression") &&
+    isNode(node.callee, "MemberExpression") &&
+    isNode(node.callee.property, "Identifier") &&
     (node.callee.property.name === "toString" ||
       node.callee.property.name === "toLocaleString")
   );
@@ -91,41 +246,70 @@ function isStringMethodCall(node) {
 
 function isMemberLike(node) {
   return (
-    t.isMemberExpression(node) ||
-    t.isOptionalMemberExpression?.(node) ||
-    (t.isTSNonNullExpression(node) && isMemberLike(node.expression))
+    isNode(node, "MemberExpression") ||
+    isNode(node, "OptionalMemberExpression") ||
+    (isNode(node, "TSNonNullExpression") && isMemberLike(node.expression))
   );
 }
 
 function isStringProducingExpression(node) {
   return (
-    t.isStringLiteral(node) ||
-    t.isNumericLiteral(node) ||
-    t.isTemplateLiteral(node) ||
+    isNode(node, "StringLiteral") ||
+    isNode(node, "NumericLiteral") ||
+    isNode(node, "TemplateLiteral") ||
     isNamedCall(node, new Set(["t", "formatMessage"])) ||
     isStringMethodCall(node) ||
     isMemberLike(node)
   );
 }
 
+function cloneNode(node) {
+  return JSON.parse(JSON.stringify(node));
+}
+
+function jsxIdentifier(name) {
+  return { name, type: "JSXIdentifier" };
+}
+
+function jsxText(value) {
+  return { type: "JSXText", value };
+}
+
+function jsxExpressionContainer(expression) {
+  return { expression, type: "JSXExpressionContainer" };
+}
+
+function spanElement(children) {
+  return {
+    children,
+    closingElement: {
+      name: jsxIdentifier("span"),
+      type: "JSXClosingElement",
+    },
+    openingElement: {
+      attributes: [],
+      name: jsxIdentifier("span"),
+      selfClosing: false,
+      type: "JSXOpeningElement",
+    },
+    type: "JSXElement",
+  };
+}
+
 function jsxTextFromStringLiteral(node) {
-  return t.jsxText(node.value);
+  return jsxText(node.value);
 }
 
 function wrapExpression(node) {
-  const child = t.isStringLiteral(node)
+  const child = isNode(node, "StringLiteral")
     ? jsxTextFromStringLiteral(node)
-    : t.jsxExpressionContainer(t.cloneNode(node, true));
+    : jsxExpressionContainer(cloneNode(node));
 
-  return t.jsxElement(
-    t.jsxOpeningElement(t.jsxIdentifier("span"), []),
-    t.jsxClosingElement(t.jsxIdentifier("span")),
-    [child],
-  );
+  return spanElement([child]);
 }
 
 function wrapIfNeeded(node) {
-  if (!isStringProducingExpression(node) || t.isJSXElement(node)) {
+  if (!isStringProducingExpression(node) || isNode(node, "JSXElement")) {
     return node;
   }
 
@@ -134,9 +318,9 @@ function wrapIfNeeded(node) {
 
 function isConditionalExpressionContainer(node) {
   return (
-    t.isJSXExpressionContainer(node) &&
-    (t.isConditionalExpression(node.expression) ||
-      t.isLogicalExpression(node.expression))
+    isNode(node, "JSXExpressionContainer") &&
+    (isNode(node.expression, "ConditionalExpression") ||
+      isNode(node.expression, "LogicalExpression"))
   );
 }
 
@@ -167,14 +351,10 @@ function buildWrappedTextNodes(node) {
     return [node];
   }
 
-  const wrapped = t.jsxElement(
-    t.jsxOpeningElement(t.jsxIdentifier("span"), []),
-    t.jsxClosingElement(t.jsxIdentifier("span")),
-    [t.jsxText(parts.text.trim())],
-  );
+  const wrapped = spanElement([jsxText(parts.text.trim())]);
 
-  return [t.jsxText(parts.before), wrapped, t.jsxText(parts.after)].filter(
-    (child) => !t.isJSXText(child) || child.value !== "",
+  return [jsxText(parts.before), wrapped, jsxText(parts.after)].filter(
+    (child) => !isNode(child, "JSXText") || child.value !== "",
   );
 }
 
@@ -182,44 +362,47 @@ function fixSource(source, filePath) {
   const ast = parseSource(source, filePath);
   let changed = false;
 
-  traverse(ast, {
-    JSXExpressionContainer(path) {
-      if (!hasMeaningfulSibling(path)) {
-        return;
-      }
+  walkAst(ast, null, false, (node, parent, inCapitalizedFunction) => {
+    if (isNode(node, "JSXExpressionContainer")) {
+      if (hasMeaningfulSibling(node, parent)) {
+        const expression = node.expression;
 
-      const expression = path.node.expression;
+        if (isNode(expression, "ConditionalExpression")) {
+          const nextConsequent = wrapIfNeeded(expression.consequent);
+          const nextAlternate = wrapIfNeeded(expression.alternate);
 
-      if (t.isConditionalExpression(expression)) {
-        const nextConsequent = wrapIfNeeded(expression.consequent);
-        const nextAlternate = wrapIfNeeded(expression.alternate);
+          if (
+            nextConsequent !== expression.consequent ||
+            nextAlternate !== expression.alternate
+          ) {
+            expression.consequent = nextConsequent;
+            expression.alternate = nextAlternate;
+            changed = true;
+          }
+        }
 
         if (
-          nextConsequent !== expression.consequent ||
-          nextAlternate !== expression.alternate
+          isNode(expression, "LogicalExpression") &&
+          expression.operator === "&&" &&
+          isStringProducingExpression(expression.right)
         ) {
-          expression.consequent = nextConsequent;
-          expression.alternate = nextAlternate;
+          expression.right = wrapExpression(expression.right);
           changed = true;
         }
       }
+    }
 
-      if (
-        t.isLogicalExpression(expression) &&
-        expression.operator === "&&" &&
-        isStringProducingExpression(expression.right)
-      ) {
-        expression.right = wrapExpression(expression.right);
-        changed = true;
-      }
-    },
-    JSXElement(path) {
-      const children = path.node.children;
+    if (isNode(node, "JSXElement")) {
+      const children = node.children;
       const nextChildren = [];
       let sawConditionalSibling = false;
 
       for (const child of children) {
-        if (t.isJSXText(child) && sawConditionalSibling && child.value.trim()) {
+        if (
+          isNode(child, "JSXText") &&
+          sawConditionalSibling &&
+          child.value.trim()
+        ) {
           nextChildren.push(...buildWrappedTextNodes(child));
           changed = true;
           continue;
@@ -234,22 +417,22 @@ function fixSource(source, filePath) {
         }
       }
 
-      path.node.children = nextChildren;
-    },
-    ReturnStatement(path) {
-      const argument = path.node.argument;
+      node.children = nextChildren;
+    }
 
+    if (isNode(node, "ReturnStatement")) {
+      const argument = node.argument;
       if (
         argument &&
-        (t.isStringLiteral(argument) ||
-          t.isNumericLiteral(argument) ||
-          t.isTemplateLiteral(argument)) &&
-        isInsideCapitalizedFunction(path)
+        (isNode(argument, "StringLiteral") ||
+          isNode(argument, "NumericLiteral") ||
+          isNode(argument, "TemplateLiteral")) &&
+        inCapitalizedFunction
       ) {
-        path.node.argument = wrapExpression(argument);
+        node.argument = wrapExpression(argument);
         changed = true;
       }
-    },
+    }
   });
 
   if (!changed) {
@@ -264,26 +447,57 @@ function fixSource(source, filePath) {
   };
 }
 
-function isInsideCapitalizedFunction(path) {
-  const functionPath = path.findParent(
-    (parentPath) =>
-      parentPath.isFunctionDeclaration() ||
-      parentPath.isFunctionExpression() ||
-      parentPath.isArrowFunctionExpression(),
-  );
-
-  if (!functionPath) {
-    return false;
+function walkAst(node, parent, inCapitalizedFunction, visit) {
+  if (!node || typeof node !== "object") {
+    return;
   }
 
-  if (functionPath.isFunctionDeclaration()) {
-    const name = functionPath.node.id?.name;
+  const isFunction =
+    isNode(node, "FunctionDeclaration") ||
+    isNode(node, "FunctionExpression") ||
+    isNode(node, "ArrowFunctionExpression");
+  const nextInCapitalizedFunction = isFunction
+    ? inCapitalizedFunction || isCapitalizedFunction(node, parent)
+    : inCapitalizedFunction;
+
+  visit(node, parent, nextInCapitalizedFunction);
+
+  for (const [key, value] of Object.entries(node)) {
+    if (
+      key === "loc" ||
+      key === "start" ||
+      key === "end" ||
+      key === "range" ||
+      key === "leadingComments" ||
+      key === "trailingComments" ||
+      key === "innerComments"
+    ) {
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      for (const child of value) {
+        if (child?.type) {
+          walkAst(child, node, nextInCapitalizedFunction, visit);
+        }
+      }
+      continue;
+    }
+
+    if (value?.type) {
+      walkAst(value, node, nextInCapitalizedFunction, visit);
+    }
+  }
+}
+
+function isCapitalizedFunction(node, parent) {
+  if (isNode(node, "FunctionDeclaration")) {
+    const name = node.id?.name;
     return Boolean(name && name[0] === name[0].toUpperCase());
   }
 
-  const parent = functionPath.parentPath;
-  if (parent?.isVariableDeclarator() && t.isIdentifier(parent.node.id)) {
-    const name = parent.node.id.name;
+  if (isNode(parent, "VariableDeclarator") && isNode(parent.id, "Identifier")) {
+    const name = parent.id.name;
     return name[0] === name[0].toUpperCase();
   }
 
@@ -307,12 +521,7 @@ async function run() {
     return;
   }
 
-  const files = await fg(patterns, {
-    absolute: false,
-    dot: false,
-    onlyFiles: true,
-    unique: true,
-  });
+  const files = expandPatterns(patterns);
 
   let changedCount = 0;
   const changedFiles = [];
