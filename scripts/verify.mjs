@@ -47,12 +47,32 @@ const result = JSON.parse(invalidOutput.slice(jsonStart, jsonEnd + 1));
 const pluginDiagnostics = result.diagnostics.filter(
   (diagnostic) => diagnostic.category === "plugin",
 );
+const pluginLocations = new Set();
 
-if (pluginDiagnostics.length !== 18) {
+for (const diagnostic of pluginDiagnostics) {
+  const { location } = diagnostic;
+  const key = [
+    location.path,
+    location.start.line,
+    location.start.column,
+    location.end.line,
+    location.end.column,
+  ].join(":");
+
+  if (pluginLocations.has(key)) {
+    process.stdout.write(invalid.stdout);
+    process.stderr.write(invalid.stderr);
+    throw new Error(`Expected plugin diagnostics to be unique, found ${key}.`);
+  }
+
+  pluginLocations.add(key);
+}
+
+if (pluginDiagnostics.length !== 15) {
   process.stdout.write(invalid.stdout);
   process.stderr.write(invalid.stderr);
   throw new Error(
-    `Expected 18 plugin diagnostics, found ${pluginDiagnostics.length}.`,
+    `Expected 15 plugin diagnostics, found ${pluginDiagnostics.length}.`,
   );
 }
 
