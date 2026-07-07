@@ -1,6 +1,6 @@
 {
   "name": "biome-plugin-react-google-translate",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Biome GritQL lint rules for React text-node patterns that can break under Google Translate DOM mutation.",
   "type": "module",
   "license": "MIT",
