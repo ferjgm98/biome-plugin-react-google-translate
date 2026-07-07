@@ -9,3 +9,15 @@ export function ReturnsNull({ hidden }) {
 
   return <span>Ready</span>;
 }
+
+export function ReturnsString() {
+  return "Ready";
+}
+
+export function ReturnsNumber() {
+  return 1;
+}
+
+export function ReturnsTemplateLiteral() {
+  return `Ready`;
+}

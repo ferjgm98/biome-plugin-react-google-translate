@@ -102,18 +102,6 @@ Member and optional member expressions in conditional JSX:
 </p>
 ```
 
-Direct returns of strings, numbers, or template literals:
-
-```jsx
-export function Label({ value }) {
-  if (value === 1) {
-    return "Ready";
-  }
-
-  return `Value ${value}`;
-}
-```
-
 Prefer wrapping text in an element:
 
 ```jsx
@@ -139,7 +127,7 @@ The command defaults to dry-run mode:
 pnpm dlx biome-plugin-react-google-translate fix "src/**/*.{jsx,tsx}"
 ```
 
-With `--write`, it wraps fixable text-producing JSX branches and direct component text returns in `<span>`. It also runs `biome format --write` on changed files when a Biome binary is available. Use `--no-format` to skip formatting.
+With `--write`, it wraps fixable text-producing JSX branches in `<span>`. It also runs `biome format --write` on changed files when a Biome binary is available. Use `--no-format` to skip formatting.
 
 ## Verification
 
@@ -165,9 +153,8 @@ Known gaps:
 
 - Static JSX text after a conditional JSX expression is detected for the common direct-child shape where the text before the expression is whitespace-only and the text after it is meaningful content. More complex child lists may need additional GritQL variants.
 - Calls and member expressions are detected by visible syntax shape only: `t(...)`, `formatMessage(...)`, `.toString()`, `.toLocaleString()`, `obj.label`, and `obj?.label`. Aliased helpers, custom formatters, variables typed as `string` or `number`, and computed object properties are not type-resolved.
-- Direct text return detection is file-structural. Scope Biome to React component files to avoid reporting ordinary utility functions that intentionally return strings or numbers.
 - The diagnostic span is usually the parent JSX element for sibling hazards because Biome/GritQL plugin diagnostics operate on structural matches rather than ESLint-style visitor state.
-- Autofix is intentionally conservative and syntax-based. Review changes before committing, especially direct text returns and member-expression cases where type information is unavailable.
+- Autofix is intentionally conservative and syntax-based. Review changes before committing, especially member-expression cases where type information is unavailable.
 
 ## Comparison With eslint-plugin-react-google-translate
 

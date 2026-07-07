@@ -2,23 +2,12 @@ engine biome(1.0)
 language js(typescript, jsx)
 
 or {
-  `return $value;` as $problem where {
-    $value <: or {
-      r"^\".*\"$",
-      r"^'.*'$",
-      r"^`.*`$",
-      r"^[0-9]+$"
-    }
-  },
   JsxElement(children=$children) as $problem where {
-    $children <: contains JsxExpressionChild(expression=JsConditionalExpression(consequent=JsStringLiteralExpression())),
-    $children <: contains or {
-      JsxElement(),
-      JsxSelfClosingElement()
-    }
-  },
-  JsxElement(children=$children) as $problem where {
-    $children <: contains JsxExpressionChild(expression=JsConditionalExpression(alternate=JsStringLiteralExpression())),
+    $children <: contains JsxExpressionChild(expression=$expression),
+    $expression <: or {
+      JsConditionalExpression(consequent=JsStringLiteralExpression()),
+      JsConditionalExpression(alternate=JsStringLiteralExpression())
+    },
     $children <: contains or {
       JsxElement(),
       JsxSelfClosingElement()

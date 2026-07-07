@@ -362,7 +362,7 @@ function fixSource(source, filePath) {
   const ast = parseSource(source, filePath);
   let changed = false;
 
-  walkAst(ast, null, false, (node, parent, inCapitalizedFunction) => {
+  walkAst(ast, null, (node, parent) => {
     if (isNode(node, "JSXExpressionContainer")) {
       if (hasMeaningfulSibling(node, parent)) {
         const expression = node.expression;
@@ -419,20 +419,6 @@ function fixSource(source, filePath) {
 
       node.children = nextChildren;
     }
-
-    if (isNode(node, "ReturnStatement")) {
-      const argument = node.argument;
-      if (
-        argument &&
-        (isNode(argument, "StringLiteral") ||
-          isNode(argument, "NumericLiteral") ||
-          isNode(argument, "TemplateLiteral")) &&
-        inCapitalizedFunction
-      ) {
-        node.argument = wrapExpression(argument);
-        changed = true;
-      }
-    }
   });
 
   if (!changed) {
@@ -447,20 +433,12 @@ function fixSource(source, filePath) {
   };
 }
 
-function walkAst(node, parent, inCapitalizedFunction, visit) {
+function walkAst(node, parent, visit) {
   if (!node || typeof node !== "object") {
     return;
   }
 
-  const isFunction =
-    isNode(node, "FunctionDeclaration") ||
-    isNode(node, "FunctionExpression") ||
-    isNode(node, "ArrowFunctionExpression");
-  const nextInCapitalizedFunction = isFunction
-    ? inCapitalizedFunction || isCapitalizedFunction(node, parent)
-    : inCapitalizedFunction;
-
-  visit(node, parent, nextInCapitalizedFunction);
+  visit(node, parent);
 
   for (const [key, value] of Object.entries(node)) {
     if (
@@ -478,30 +456,16 @@ function walkAst(node, parent, inCapitalizedFunction, visit) {
     if (Array.isArray(value)) {
       for (const child of value) {
         if (child?.type) {
-          walkAst(child, node, nextInCapitalizedFunction, visit);
+          walkAst(child, node, visit);
         }
       }
       continue;
     }
 
     if (value?.type) {
-      walkAst(value, node, nextInCapitalizedFunction, visit);
+      walkAst(value, node, visit);
     }
   }
-}
-
-function isCapitalizedFunction(node, parent) {
-  if (isNode(node, "FunctionDeclaration")) {
-    const name = node.id?.name;
-    return Boolean(name && name[0] === name[0].toUpperCase());
-  }
-
-  if (isNode(parent, "VariableDeclarator") && isNode(parent.id, "Identifier")) {
-    const name = parent.id.name;
-    return name[0] === name[0].toUpperCase();
-  }
-
-  return false;
 }
 
 async function run() {
