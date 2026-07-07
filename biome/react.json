@@ -1,0 +1,12 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
+  "plugins": [
+    {
+      "path": "./node_modules/biome-plugin-react-google-translate/rules/react-google-translate.grit",
+      "includes": ["**/*.{jsx,tsx}"]
+    }
+  ],
+  "linter": {
+    "enabled": true
+  }
+}

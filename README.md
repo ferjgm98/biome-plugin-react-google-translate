@@ -30,7 +30,19 @@ pnpm add -D @biomejs/biome@latest
 
 ## Usage
 
-Add the GritQL rule file to `biome.json`:
+Extend the Biome preset from `biome.json`:
+
+```json
+{
+  "extends": ["biome-plugin-react-google-translate/biome/react"]
+}
+```
+
+That preset enables the GritQL plugin for JSX and TSX files.
+
+### Legacy Direct Plugin Path
+
+The older direct `.grit` path remains supported:
 
 ```json
 {
@@ -39,6 +51,8 @@ Add the GritQL rule file to `biome.json`:
   ]
 }
 ```
+
+Use this form if you prefer explicit plugin loading or need compatibility with setups that do not use package-based `extends`.
 
 Run Biome on React files:
 
